@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Yummy-YES Takoyaki POS</title>
+  <link rel="icon" href="logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="shell">
+
+    <aside class="rail">
+      <div class="brand">
+        <img src="logo.png" alt="Yummy-YES Takoyaki - From Japan to You">
+        <span>POINT OF SALE</span>
+      </div>
+
+      <nav id="nav"></nav>
+
+      <div class="today">
+        <span>Today's Sales</span>
+        <b id="tAmt">0</b>
+        <small id="tOrd"></small>
+      </div>
+
+      <div class="cur" id="curStaff"></div>
+      <button class="btn sm lockbtn" onclick="lockApp()">Lock</button>
+    </aside>
+
+    <div class="main">
+      <header class="top">
+        <h1 id="ttl"></h1>
+        <span id="clk"></span>
+      </header>
+
+      <section id="v-pos" class="view">
+        <div class="menu">
+          <div class="chips" id="chips"></div>
+          <div class="grid" id="grid"></div>
+        </div>
+
+        <aside class="order">
+          <div class="oh">
+            <h2 id="oTitle">Current Order</h2>
+            <button onclick="clearCart()">Clear</button>
+          </div>
+
+          <div id="lines"></div>
+
+          <div class="sum">
+            <div class="r">
+              <span>Subtotal</span>
+              <span id="sub"></span>
+            </div>
+            <div class="r t">
+              <span>Total</span>
+              <b id="tot"></b>
+            </div>
+            <div class="r">
+              <label for="cash">Cash received</label>
+              <input id="cash" class="cashin" type="number" min="0" placeholder="0" oninput="pay()">
+            </div>
+            <div class="qk" id="qk"></div>
+            <div class="r chg" id="chgBox">
+              <span id="chgLab">Change</span>
+              <b id="chg">0</b>
+            </div>
+          </div>
+
+          <button class="btn p go" id="go" onclick="checkout()">Charge</button>
+        </aside>
+      </section>
+
+      <section id="v-kitchen" class="view">
+        <div class="cols">
+          <div>
+            <h2>Preparing</h2>
+            <div id="kPrep"></div>
+          </div>
+          <div>
+            <h2>Ready for pickup</h2>
+            <div id="kReady"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="v-inventory" class="view">
+        <div class="kpis" id="invK"></div>
+        <div class="box">
+          <h2>Stock levels</h2>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Level</th>
+                <th>Status</th>
+                <th>In stock</th>
+                <th class="num">Adjust</th>
+              </tr>
+            </thead>
+            <tbody id="invT"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="v-sales" class="view">
+        <div class="row">
+          <label for="sd" style="color:var(--mu)">Report date</label>
+          <input id="sd" class="dt" type="date" onchange="sel=this.value;drawSales()">
+          <button class="btn" onclick="exportCSV()">Export sales (CSV)</button>
+          <button class="btn" onclick="resetAll()">Reset all data</button>
+        </div>
+
+        <div class="kpis" id="sK"></div>
+
+        <div class="box">
+          <h2>Daily sales, last 7 days</h2>
+          <div class="bars" id="bars"></div>
+        </div>
+
+        <div class="two">
+          <div class="box">
+            <h2 id="dayTitle">Orders on this day</h2>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Time</th>
+                  <th>Staff</th>
+                  <th>Items</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody id="sT"></tbody>
+            </table>
+          </div>
+
+          <div class="box">
+            <h2>Best sellers</h2>
+            <div id="top"></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <h2>Sales by staff</h2>
+          <div id="byStaff"></div>
+        </div>
+
+        <div class="box">
+          <h2>Sales by date</h2>
+          <div id="byDate"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="ov" id="ov">
+    <div class="md">
+      <h2 id="rNo"></h2>
+      <div class="st">Check the receipt, then send to the kitchen.</div>
+      <div id="rLines"></div>
+      <hr>
+      <div class="li">
+        <span>Total</span>
+        <b id="rTot"></b>
+      </div>
+      <div class="li">
+        <span>Cash</span>
+        <b id="rCash"></b>
+      </div>
+      <div class="li">
+        <span>Change</span>
+        <b id="rChg" style="color:var(--gr)"></b>
+      </div>
+      <div class="ma">
+        <button class="btn" onclick="closeR()">Back</button>
+        <button class="btn p" onclick="sendK()">Send to Kitchen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov" id="ovB">
+    <div class="md">
+      <h2 id="bTitle"></h2>
+      <div id="bCnt" class="st"></div>
+      <div class="fp" id="bFl"></div>
+      <div class="ma">
+        <button class="btn" onclick="closeB()">Cancel</button>
+        <button class="btn" onclick="resetB()">Reset</button>
+        <button class="btn p" id="bOk" onclick="confirmB()">Add to order</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div class="lock on" id="lock">
+    <div class="lk">
+      <img src="logo.png" alt="Yummy-YES Takoyaki">
+      <h2 id="lkTitle">Staff Login</h2>
+      <div class="dots" id="dots"></div>
+      <div class="lerr" id="lerr"></div>
+      <div class="pad" id="pad"></div>
+      <div class="who" id="who"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+
+</body>
+
+</html>
