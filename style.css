@@ -1143,19 +1143,23 @@ button {
     overflow: visible;
   }
 }
-.lback {
-  margin-top: 12px;
-  background: none;
-  border: 0;
+.tbl tr.grp td {
+  padding-top: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   color: var(--mu);
-  font: 600 14px Inter, Arial, sans-serif;
-  cursor: pointer;
 }
 
-.lback:hover {
-  color: var(--tx);
+#invNeed .li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bd, rgba(255, 255, 255, .08));
 }
 
-.lk.pick .lback {
-  display: none;
+#invNeed .li:last-child {
+  border-bottom: 0;
 }
