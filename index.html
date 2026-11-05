@@ -92,15 +92,17 @@
       <section id="v-inventory" class="view">
         <div class="kpis" id="invK"></div>
         <div class="box">
+          <h2>To buy (running low or out)</h2>
+          <div id="invNeed"></div>
+        </div>
+        <div class="box">
           <h2>Stock levels</h2>
           <table class="tbl">
             <thead>
               <tr>
-                <th>Ingredient</th>
-                <th>Level</th>
+                <th>Item</th>
                 <th>Status</th>
-                <th>In stock</th>
-                <th class="num">Adjust</th>
+                <th class="num">Update</th>
               </tr>
             </thead>
             <tbody id="invT"></tbody>
@@ -206,7 +208,6 @@
       <div class="dots" id="dots"></div>
       <div class="lerr" id="lerr"></div>
       <div class="pad" id="pad"></div>
-      <button class="lback" id="lback" onclick="showRole()">&larr; Change role</button>
       <div class="who" id="who"></div>
     </div>
   </div>
