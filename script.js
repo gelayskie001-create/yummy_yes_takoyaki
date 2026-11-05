@@ -1176,6 +1176,7 @@ var AUTH_KEY = "yy2_auth";
 var STAFF_KEY = "yy2_staff";
 var ROLE_KEY = "yy2_role";
 var pinBuf = "";
+var pickedRole = "";
 var tries = 0;
 var lockUntil = 0;
 
@@ -1235,9 +1236,13 @@ function drawStaff() {
   $(".today").style.visibility = isOwner() ? "visible" : "hidden";
 }
 
+function currentPin() {
+  return pickedRole === "owner" ? OPIN : PIN;
+}
+
 function drawPin() {
   var html = "";
-  for (var i = 0; i < PIN.length; i++) {
+  for (var i = 0; i < currentPin().length; i++) {
     html += '<i class="' + (i < pinBuf.length ? "f" : "") + '"></i>';
   }
   $("#dots").innerHTML = html;
@@ -1263,20 +1268,20 @@ function pinKey(k) {
     pinBuf = "";
   } else if (k === "bk") {
     pinBuf = pinBuf.slice(0, -1);
-  } else if (pinBuf.length < PIN.length) {
+  } else if (pinBuf.length < currentPin().length) {
     pinBuf += k;
   }
 
   $("#lerr").textContent = "";
   drawPin();
 
-  if (pinBuf.length === PIN.length) checkPin();
+  if (currentPin() && pinBuf.length === currentPin().length) checkPin();
 }
 
 function checkPin() {
   var role = "";
-  if (OPIN && pinBuf === OPIN) role = "owner";
-  else if (pinBuf === PIN) role = "staff";
+  if (pickedRole === "owner" && OPIN && pinBuf === OPIN) role = "owner";
+  else if (pickedRole === "staff" && pinBuf === PIN) role = "staff";
 
   if (role) {
     ssSet(ROLE_KEY, role);
@@ -1310,6 +1315,28 @@ function checkPin() {
   drawPin();
 }
 
+function showRole() {
+  pickedRole = "";
+  pinBuf = "";
+  $("#lerr").textContent = "";
+  $(".lk").classList.add("pick");
+  $("#lkTitle").textContent = "Who's logging in?";
+  $("#who").innerHTML =
+    '<button onclick="chooseRole(\'staff\')">Staff</button>' +
+    '<button onclick="chooseRole(\'owner\')">Owner</button>';
+  drawPin();
+  $("#lock").classList.add("on");
+}
+
+function chooseRole(r) {
+  pickedRole = r;
+  pinBuf = "";
+  $("#lerr").textContent = "";
+  $(".lk").classList.remove("pick");
+  $("#lkTitle").textContent = r === "owner" ? "Owner Login" : "Staff Login";
+  drawPin();
+}
+
 function afterPin() {
   if (NAMES.length && !ss(STAFF_KEY)) showWho();
   else unlockApp();
@@ -1331,7 +1358,6 @@ function pickStaff(i) {
 
 function unlockApp() {
   $(".lk").classList.remove("pick");
-  $("#lkTitle").textContent = "Staff Login";
   $("#lock").classList.remove("on");
   drawStaff();
   drawNav();
@@ -1342,15 +1368,10 @@ function lockApp() {
   ssDel(AUTH_KEY);
   ssDel(STAFF_KEY);
   ssDel(ROLE_KEY);
-  pinBuf = "";
-  $("#lerr").textContent = "";
-  $(".lk").classList.remove("pick");
-  $("#lkTitle").textContent = "Staff Login";
-  drawPin();
   drawStaff();
   drawNav();
   go("pos");
-  $("#lock").classList.add("on");
+  showRole();
 }
 
 document.addEventListener("keydown", function (e) {
@@ -1366,5 +1387,6 @@ drawPad();
 drawPin();
 drawStaff();
 if (isAuthed()) afterPin();
+else showRole();
 
 init();
