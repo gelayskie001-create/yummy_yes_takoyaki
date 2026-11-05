@@ -8,7 +8,7 @@
   <title>Yummy-YES Takoyaki POS</title>
   <link rel="icon" href="logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 
 <body>
@@ -61,11 +61,7 @@
               <span>Total</span>
               <b id="tot"></b>
             </div>
-            <div class="pm" id="pm">
-              <button id="pmCash" class="on" onclick="setMethod('cash')">Cash</button>
-              <button id="pmGcash" onclick="setMethod('gcash')">GCash</button>
-            </div>
-            <div class="r" id="cashRow">
+            <div class="r">
               <label for="cash">Cash received</label>
               <input id="cash" class="cashin" type="number" min="0" placeholder="0" oninput="pay()">
             </div>
@@ -139,7 +135,6 @@
                   <th>Time</th>
                   <th>Staff</th>
                   <th>Items</th>
-                  <th>Pay</th>
                   <th class="num">Total</th>
                 </tr>
               </thead>
@@ -177,14 +172,10 @@
         <b id="rTot"></b>
       </div>
       <div class="li">
-        <span>Payment</span>
-        <b id="rMethod"></b>
-      </div>
-      <div class="li" id="rCashRow">
         <span>Cash</span>
         <b id="rCash"></b>
       </div>
-      <div class="li" id="rChgRow">
+      <div class="li">
         <span>Change</span>
         <b id="rChg" style="color:var(--gr)"></b>
       </div>
@@ -222,8 +213,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=3"></script>
-  <script src="script.js?v=3"></script>
+  <script src="config.js?v=4"></script>
+  <script src="script.js?v=4"></script>
 
 </body>
 
