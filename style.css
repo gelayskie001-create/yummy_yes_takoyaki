@@ -1143,3 +1143,19 @@ button {
     overflow: visible;
   }
 }
+.lback {
+  margin-top: 12px;
+  background: none;
+  border: 0;
+  color: var(--mu);
+  font: 600 14px Inter, Arial, sans-serif;
+  cursor: pointer;
+}
+
+.lback:hover {
+  color: var(--tx);
+}
+
+.lk.pick .lback {
+  display: none;
+}
