@@ -68,8 +68,27 @@ var ING = [
   ["kewpie",  "Kewpie"],
   ["flakes",  "Flakes"],
   ["floss",   "Floss"],
-  ["chilli",  "Chilli Powder"]
+  ["chilli",  "Chilli Powder"],
+  ["box",     "Box"],
+  ["fork",    "Fork Stick"],
+  ["flour",   "Flour"]
 ];
+
+// Inventory groups (for the Inventory screen)
+var GROUPS = [
+  ["Fillings",             ["octopus", "crab", "shrimp", "ham", "bacon", "cheese", "veggies"]],
+  ["Sauces and toppings",  ["sauce", "kewpie", "flakes", "floss", "chilli"]],
+  ["Packaging and supplies", ["box", "fork", "flour"]]
+];
+
+// Items tracked by status (Good / Low / Out) instead of a count.
+// Remove an id from this list to count it again (auto-deducts per sale).
+var SUPPLY = ["octopus", "crab", "shrimp", "ham", "bacon", "cheese", "veggies",
+              "sauce", "kewpie", "flakes", "floss", "chilli", "box", "fork", "flour"];
+
+function isSup(id) {
+  return SUPPLY.indexOf(id) !== -1;
+}
 
 var FL = [
   ["Octopus",          ["octopus"],          "Seafood"],
@@ -128,7 +147,7 @@ function dbFail(e) {
 
 var inv = {};
 ING.forEach(function (g) {
-  inv[g[0]] = { name: g[1], stock: MAXS };
+  inv[g[0]] = { name: g[1], stock: isSup(g[0]) ? 2 : MAXS };
 });
 
 var orders = [];
@@ -149,6 +168,16 @@ async function loadAll() {
   a.data.forEach(function (r) {
     inv[r.id] = { name: r.name, stock: r.stock };
   });
+
+  // new items (Box, Fork Stick, Flour) that are not in the database yet
+  var have = a.data.map(function (r) { return r.id; });
+  var missing = ING.filter(function (g) { return have.indexOf(g[0]) === -1; });
+  if (missing.length) {
+    var ins = await db.from("ingredients").upsert(missing.map(function (g) {
+      return { id: g[0], name: g[1], stock: inv[g[0]].stock };
+    }));
+    if (ins.error) console.warn("Could not add new inventory items:", ins.error);
+  }
 
   var b = await db.from("orders").select("*, order_items(*)").order("ts", { ascending: true });
   if (b.error) throw b.error;
@@ -283,7 +312,8 @@ function used(u) {
 
 function lacking(u) {
   for (var i = 0; i < u.length; i++) {
-    if (inv[u[i]].stock - used(u[i]) < 1) return inv[u[i]].name;
+    var left = isSup(u[i]) ? inv[u[i]].stock : inv[u[i]].stock - used(u[i]);
+    if (left < 1) return inv[u[i]].name;
   }
   return null;
 }
@@ -604,6 +634,7 @@ async function sendK() {
     });
 
     for (var id in dec) {
+      if (isSup(id)) continue;
       var g = await db.from("ingredients").select("stock").eq("id", id).single();
       var base = g.data ? g.data.stock : inv[id].stock;
       var left = Math.max(0, base - dec[id]);
@@ -700,8 +731,9 @@ function drawKitchen() {
 
 /* ---------- inventory ---------- */
 
-function stat(s) {
-  if (s < 1)    return ["out", "Out of stock"];
+function stat(s, id) {
+  if (s < 1) return ["out", "Out of stock"];
+  if (id && isSup(id)) return s === 1 ? ["low", "Running low"] : ["ok", "Good"];
   if (s <= LOW) return ["low", "Low stock"];
   return ["ok", "In stock"];
 }
@@ -733,38 +765,88 @@ async function setStock(id, v) {
   }
 }
 
+// status items: 2 = Good, 1 = Running low, 0 = Out
+async function setLevel(id, n) {
+  try {
+    inv[id].stock = n;
+    await saveStock(id);
+    drawInv();
+    drawMenu();
+  } catch (e) {
+    dbFail(e);
+  }
+}
+
+function invRow(k) {
+  var s  = inv[k].stock;
+  var st = stat(s, k);
+  var ctl = "";
+
+  if (isSup(k)) {
+    var lv = s < 1 ? 0 : (s === 1 ? 1 : 2);
+    ctl = [[2, "Good"], [1, "Low"], [0, "Out"]].map(function (o) {
+      return '<button class="btn sm' + (lv === o[0] ? ' p' : '') + '" onclick="setLevel(\'' + k + '\',' + o[0] + ')">' + o[1] + '</button>';
+    }).join(" ");
+  } else {
+    ctl = '<input class="sk" type="number" min="0" value="' + s + '" onchange="setStock(\'' + k + '\',this.value)"> ' +
+      '<button class="btn sm" onclick="adj(\'' + k + '\',-1)">-1</button> ' +
+      '<button class="btn p sm" onclick="adj(\'' + k + '\',10)">+10</button> ' +
+      '<button class="btn p sm" onclick="adj(\'' + k + '\',50)">+50</button>';
+  }
+
+  return '<tr>' +
+    '<td><b>' + inv[k].name + '</b></td>' +
+    '<td><span class="tag ' + st[0] + '">' + st[1] + '</span></td>' +
+    '<td class="num">' + ctl + '</td>' +
+    '</tr>';
+}
+
 function drawInv() {
   var ids = Object.keys(inv);
   var low = 0;
   var out = 0;
+  var need = [];
 
   ids.forEach(function (k) {
-    var s = inv[k].stock;
-    if (s < 1)        out++;
-    else if (s <= LOW) low++;
+    var st = stat(inv[k].stock, k);
+    if (st[0] === "out") { out++; need.push([k, st]); }
+    else if (st[0] === "low") { low++; need.push([k, st]); }
   });
 
   $("#invK").innerHTML =
-    '<div class="kpi"><span>Ingredients tracked</span><b>' + ids.length + '</b></div>' +
-    '<div class="kpi"><span>Low stock</span><b>' + low + '</b></div>' +
+    '<div class="kpi"><span>Items tracked</span><b>' + ids.length + '</b></div>' +
+    '<div class="kpi"><span>Running low</span><b>' + low + '</b></div>' +
     '<div class="kpi"><span>Out of stock</span><b style="color:var(--rd)">' + out + '</b></div>';
 
-  $("#invT").innerHTML = ids.map(function (k) {
-    var s  = inv[k].stock;
-    var st = stat(s);
+  need.sort(function (x, y) {
+    return (x[1][0] === "out" ? 0 : 1) - (y[1][0] === "out" ? 0 : 1);
+  });
 
-    return '<tr>' +
-      '<td><b>' + inv[k].name + '</b></td>' +
-      '<td><div class="lv ' + st[0] + '"><i style="width:' + Math.min(100, s / MAXS * 100) + '%"></i></div></td>' +
-      '<td><span class="tag ' + st[0] + '">' + st[1] + '</span></td>' +
-      '<td><input class="sk" type="number" min="0" value="' + s + '" onchange="setStock(\'' + k + '\',this.value)"></td>' +
-      '<td class="num">' +
-        '<button class="btn sm" onclick="adj(\'' + k + '\',-1)">-1</button> ' +
-        '<button class="btn p sm" onclick="adj(\'' + k + '\',10)">+10</button> ' +
-        '<button class="btn p sm" onclick="adj(\'' + k + '\',50)">+50</button>' +
-      '</td>' +
-      '</tr>';
-  }).join("");
+  $("#invNeed").innerHTML = need.length
+    ? need.map(function (n) {
+        return '<div class="li"><span>' + inv[n[0]].name + '</span><span class="tag ' + n[1][0] + '">' + n[1][1] + '</span></div>';
+      }).join("")
+    : '<p class="em">Nothing to buy. Everything is in stock.</p>';
+
+  var html = "";
+  var shown = {};
+
+  GROUPS.forEach(function (g) {
+    var rows = g[1].filter(function (k) { return inv[k]; });
+    if (!rows.length) return;
+    html += '<tr class="grp"><td colspan="3">' + g[0] + '</td></tr>';
+    rows.forEach(function (k) {
+      shown[k] = 1;
+      html += invRow(k);
+    });
+  });
+
+  // anything not in a group
+  ids.filter(function (k) { return !shown[k]; }).forEach(function (k) {
+    html += invRow(k);
+  });
+
+  $("#invT").innerHTML = html;
 }
 
 /* ---------- sales ---------- */
@@ -956,6 +1038,11 @@ async function resetAll() {
 
     var r2 = await db.from("ingredients").update({ stock: MAXS }).neq("id", "");
     if (r2.error) throw r2.error;
+
+    if (SUPPLY.length) {
+      var r3 = await db.from("ingredients").update({ stock: 2 }).in("id", SUPPLY);
+      if (r3.error) throw r3.error;
+    }
 
     location.reload();
   } catch (e) {
