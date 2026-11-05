@@ -194,6 +194,7 @@ async function loadAll() {
       by: r.staff,
       total: r.total,
       cash: r.cash,
+      method: r.method || "cash",
       change: r.change_amt,
       st: r.status,
       items: its.map(function (i) {
@@ -425,8 +426,31 @@ function setCash(v) {
   pay();
 }
 
+var method = "cash";
+
+function setMethod(m) {
+  method = m;
+  var g = m === "gcash";
+
+  $("#pmCash").classList.toggle("on", !g);
+  $("#pmGcash").classList.toggle("on", g);
+  $("#cashRow").style.display = g ? "none" : "";
+  $("#qk").style.display      = g ? "none" : "";
+  $("#chgBox").style.display  = g ? "none" : "";
+
+  $("#cash").value = "";
+  pay();
+}
+
 function pay() {
   var t   = total();
+
+  if (method === "gcash") {
+    $("#go").textContent = "Charge " + peso(t) + " (GCash)";
+    $("#go").disabled = !cart.length;
+    return;
+  }
+
   var raw = $("#cash").value;
   var c   = Number(raw);
   var b   = $("#go");
@@ -551,10 +575,12 @@ function confirmB() {
 function checkout() {
   var t = total();
   var c = Number($("#cash").value);
+  var g = method === "gcash";
 
-  if (!cart.length || c < t || $("#cash").value === "") return;
+  if (!cart.length) return;
+  if (!g && (c < t || $("#cash").value === "")) return;
 
-  c = Math.round(c);
+  c = g ? t : Math.round(c);
 
   var items = cart.map(function (l) {
     return { n: l.n, s: l.s, q: l.q, price: l.price, u: l.u };
@@ -568,6 +594,7 @@ function checkout() {
     items: items,
     total: t,
     cash: c,
+    method: method,
     change: c - t,
     st: "preparing"
   };
@@ -589,6 +616,9 @@ function checkout() {
   $("#rTot").textContent  = peso(t);
   $("#rCash").textContent = peso(c);
   $("#rChg").textContent  = peso(c - t);
+  $("#rMethod").textContent = g ? "GCash" : "Cash";
+  $("#rCashRow").style.display = g ? "none" : "";
+  $("#rChgRow").style.display  = g ? "none" : "";
 
   $("#ov").classList.add("on");
 }
@@ -607,16 +637,26 @@ async function sendK() {
     if (mx.data.length && mx.data[0].no >= o.no) o.no = mx.data[0].no + 1;
 
     // 2. save the order
-    var r1 = await db.from("orders").insert({
+    var row = {
       no: o.no,
       ts: o.ts,
       date: o.date,
       staff: o.by,
       total: o.total,
       cash: o.cash,
+      method: o.method,
       change_amt: o.change,
       status: o.st
-    });
+    };
+    var r1 = await db.from("orders").insert(row);
+
+    // database has no "method" column yet: save without it so selling still works
+    var noCol = false;
+    if (r1.error && /method/i.test(r1.error.message || "")) {
+      delete row.method;
+      noCol = true;
+      r1 = await db.from("orders").insert(row);
+    }
     if (r1.error) throw r1.error;
 
     // 3. save the items of the order
@@ -656,6 +696,7 @@ async function sendK() {
 
     cart = [];
     $("#cash").value = "";
+    setMethod("cash");
 
     closeR();
     drawCart();
@@ -664,7 +705,7 @@ async function sendK() {
     drawToday();
     go("kitchen");
 
-    toast("Order sent to the kitchen");
+    toast(noCol ? "Sent. GCash not saved in database: add the method column (see SQL)" : "Order sent to the kitchen", noCol ? 1 : 0);
   } catch (e) {
     dbFail(e);
   } finally {
@@ -883,8 +924,10 @@ function drawSales() {
 
   var sum = 0;
   var cnt = 0;
+  var gc = 0;
   day.forEach(function (o) {
     sum += o.total;
+    if (o.method === "gcash") gc += o.total;
     o.items.forEach(function (i) {
       cnt += i.q;
     });
@@ -894,7 +937,9 @@ function drawSales() {
     '<div class="kpi"><span>Total sales</span><b>' + peso(sum) + '</b></div>' +
     '<div class="kpi"><span>Orders</span><b>' + day.length + '</b></div>' +
     '<div class="kpi"><span>Average order</span><b>' + peso(day.length ? Math.round(sum / day.length) : 0) + '</b></div>' +
-    '<div class="kpi"><span>Items sold</span><b>' + cnt + '</b></div>';
+    '<div class="kpi"><span>Items sold</span><b>' + cnt + '</b></div>' +
+    '<div class="kpi"><span>Cash</span><b>' + peso(sum - gc) + '</b></div>' +
+    '<div class="kpi"><span>GCash</span><b>' + peso(gc) + '</b></div>';
 
   var base = new Date(sel + "T00:00:00");
   var days = [];
@@ -934,10 +979,11 @@ function drawSales() {
           '<td>' + tm(o.ts) + '</td>' +
           '<td>' + esc(o.by || "-") + '</td>' +
           '<td>' + items + '</td>' +
+          '<td>' + (o.method === "gcash" ? "GCash" : "Cash") + '</td>' +
           '<td class="num"><b>' + peso(o.total) + '</b></td>' +
           '</tr>';
       }).join("")
-    : '<tr><td colspan="5" style="color:var(--mu)">No orders on this date.</td></tr>';
+    : '<tr><td colspan="6" style="color:var(--mu)">No orders on this date.</td></tr>';
 
   var agg = {};
   day.forEach(function (o) {
@@ -1089,7 +1135,7 @@ function exportCSV() {
     return;
   }
 
-  var rows = [["Date", "Items", "Total"]];
+  var rows = [["Date", "Items", "Payment", "Total"]];
 
   orders.slice().sort(function (a, b) {
     return a.ts - b.ts;
@@ -1098,7 +1144,7 @@ function exportCSV() {
       return i.q + " x " + i.n + (i.s ? " (" + i.s + ")" : "");
     }).join("; ");
 
-    rows.push([o.date, items, o.total]);
+    rows.push([o.date, items, o.method === "gcash" ? "GCash" : "Cash", o.total]);
   });
 
   var text = "\uFEFF" + rows.map(function (r) {
